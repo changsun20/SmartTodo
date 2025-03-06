@@ -102,38 +102,34 @@ jobs:
             brew install lld
           fi
 
-          - name: 🏗️ Publish NativeAOT
-              shell: bash
-              run: |
-                case "${{ matrix.rid }}" in  # 修正多余的}
-                  linux-arm64)
-                    ilc_args="-p:IlcLinkerFlags=\"-fuse-ld=lld --target=aarch64-linux-gnu\" -p:IlcTargetTriple=aarch64-linux-gnu"
-                    ;;
-                  linux-arm)
-                    ilc_args="-p:IlcLinkerFlags=\"-fuse-ld=lld --target=arm-linux-gnueabihf\" -p:IlcTargetTriple=arm-linux-gnueabihf"
-                    ;;
-                  *)
-                    ilc_args=""
-                    ;;
-                esac
-                
-                dotnet publish Todo.Cli/Todo.Cli.csproj \
-                  -r ${{ matrix.rid }} \
-                  -c Release \
-                  -p:PublishAot=true \
-                  -p:DebugType=None \
-                  -p:DebugSymbols=false \
-                  -p:EnableCompressionInSingleFile=true \
-                  -p:IlcGenerateStackTraceData=false \
-                  -p:IlcOptimizationPreference=Speed \
-                  $ilc_args \
-                  -o artifacts/publish/${{ matrix.rid }}
-                
-                mv artifacts/publish/${{ matrix.rid }}/Todo.Cli${{ matrix.suffix }} artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
-      - name: Verify Output
+      - name: 🏗️ Publish NativeAOT
+        shell: bash
         run: |
-          ls -lh artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
-          file artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
+          case "${{ matrix.rid }}" in
+            linux-arm64)
+              ilc_args="-p:IlcLinkerFlags=\"-fuse-ld=lld --target=aarch64-linux-gnu\" -p:IlcTargetTriple=aarch64-linux-gnu"
+              ;;
+            linux-arm)
+              ilc_args="-p:IlcLinkerFlags=\"-fuse-ld=lld --target=arm-linux-gnueabihf\" -p:IlcTargetTriple=arm-linux-gnueabihf"
+              ;;
+            *)
+              ilc_args=""
+              ;;
+          esac
+      
+          dotnet publish Todo.Cli/Todo.Cli.csproj \
+            -r ${{ matrix.rid }} \
+            -c Release \
+            -p:PublishAot=true \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -p:EnableCompressionInSingleFile=true \
+            -p:IlcGenerateStackTraceData=false \
+            -p:IlcOptimizationPreference=Speed \
+            $ilc_args \
+            -o artifacts/publish/${{ matrix.rid }}
+      
+          mv artifacts/publish/${{ matrix.rid }}/Todo.Cli${{ matrix.suffix }} artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
