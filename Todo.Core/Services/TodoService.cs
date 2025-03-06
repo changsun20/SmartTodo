@@ -23,5 +23,5 @@ public class TodoService : ITodoService
         return newItem;
     }
 
-    public IEnumerable<TodoItem> GetAllTodos() => _todos.AsReadOnly();
+    public IReadOnlyList<TodoItem> GetAllTodos() => _todos.AsReadOnly();
 }
