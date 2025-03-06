@@ -5,5 +5,5 @@ namespace Todo.Core.Interfaces;
 public interface ITodoService
 {
     TodoItem AddTodo(string title);
-    IEnumerable<TodoItem> GetAllTodos();
+    IReadOnlyList<TodoItem> GetAllTodos();
 }

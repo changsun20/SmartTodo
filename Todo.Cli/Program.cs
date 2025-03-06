@@ -41,9 +41,19 @@ while (true)
     else if (input.Equals("list", StringComparison.OrdinalIgnoreCase))
     {
         var todos = todoService.GetAllTodos();
-        Console.WriteLine(todos.Any()
-            ? "Current todos:\n" + string.Join("\n", todos.Select(t => $"#{t.Id} {t.Title}"))
-            : "No todos yet!");
+
+        if (todos.Count == 0)
+        {
+            Console.WriteLine("No todos yet!");
+        }
+        else
+        {
+            Console.WriteLine($"Current todos ({todos.Count}):");
+            foreach (var t in todos)
+            {
+                Console.WriteLine($" #{t.Id} {t.Title} [Created: {t.CreatedAt:g}]");
+            }
+        }
     }
     else
     {
