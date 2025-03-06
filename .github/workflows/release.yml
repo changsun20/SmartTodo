@@ -20,7 +20,6 @@ jobs:
       - name: 📄 Generate Release Notes
         id: generate-notes
         run: |
-          # 智能处理首次发布和后续更新
           if git describe --tags --abbrev=0 &> /dev/null; then
             prev_tag=$(git describe --tags --abbrev=0)
             commit_range="$prev_tag..HEAD"
@@ -29,16 +28,13 @@ jobs:
             commit_range="HEAD"
           fi
 
-          # 生成带可点击链接的提交列表
           changes=$(git log --pretty=format:"- [%h](https://github.com/$GITHUB_REPOSITORY/commit/%H) %s (%an)" $commit_range)
           compare_url="https://github.com/$GITHUB_REPOSITORY/compare/$prev_tag...${{ github.ref_name }}"
 
-          # 构建 Markdown 内容
           notes="## 🚀 SmartTodo ${{ github.ref_name }}\n\n"
           notes+="### ✨ What's Changed\n${changes}\n\n"
           notes+="📚 **Full Changelog**: [View Changes]($compare_url)"
           
-          # 输出到环境变量
           echo "content=$notes" >> $GITHUB_OUTPUT
 
   build:
@@ -90,7 +86,18 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            sudo apt-get update && sudo apt-get install -y clang lld
+            sudo apt-get update
+            sudo apt-get install -y clang lld
+
+            case "${{ matrix.rid }}" in
+              linux-arm64)
+                sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+                ;;
+              linux-arm)
+                sudo apt-get install -y gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
+                ;;
+            esac
+
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             brew install lld
           fi
@@ -98,6 +105,18 @@ jobs:
       - name: 🏗️ Publish NativeAOT
         shell: bash
         run: |
+          case "${{ matrix.rid }}" in
+            linux-arm64)
+              ilc_args="-p:IlcLinkerFlags=-fuse-ld=lld --target=aarch64-linux-gnu -p:IlcTargetTriple=aarch64-linux-gnu"
+              ;;
+            linux-arm)
+              ilc_args="-p:IlcLinkerFlags=-fuse-ld=lld --target=arm-linux-gnueabihf -p:IlcTargetTriple=arm-linux-gnueabihf"
+              ;;
+            *)
+              ilc_args=""
+              ;;
+          esac
+
           dotnet publish Todo.Cli/Todo.Cli.csproj \
             -r ${{ matrix.rid }} \
             -c Release \
@@ -107,9 +126,9 @@ jobs:
             -p:EnableCompressionInSingleFile=true \
             -p:IlcGenerateStackTraceData=false \
             -p:IlcOptimizationPreference=Speed \
+            $ilc_args \
             -o artifacts/publish/${{ matrix.rid }}
 
-          # 移动文件到扁平化目录
           mv artifacts/publish/${{ matrix.rid }}/Todo.Cli${{ matrix.suffix }} artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
 
       - name: Verify Output
@@ -121,8 +140,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: binaries
-          path: |
-            artifacts/SmartTodo-*
+          path: artifacts/SmartTodo-*
           retention-days: 3
 
   release:
