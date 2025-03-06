@@ -109,7 +109,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: binaries
+          name: binaries-${{ matrix.rid }}  # 关键改动：添加RID后缀
           path: artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
           retention-days: 3
 
@@ -125,8 +125,9 @@ jobs:
       - name: Prepare Release Assets
         run: |
           mkdir -p artifacts
-          find download-artifacts/ -name "SmartTodo-*" -exec cp {} artifacts/ \;
-          cp download-artifacts/release-notes/release_notes.md ./notes/ || echo "Fallback release notes" > ./notes/release_notes.md
+          # 使用通配符收集所有二进制文件
+          find download-artifacts/binaries-* -type f -exec cp {} artifacts/ \;
+          cp download-artifacts/release-notes/release_notes.md ./notes/
 
       - name: 🏷️ Create GitHub Release
         uses: softprops/action-gh-release@v2
