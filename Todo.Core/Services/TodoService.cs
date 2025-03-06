@@ -6,7 +6,6 @@ namespace Todo.Core.Services;
 public class TodoService : ITodoService
 {
     private readonly List<TodoItem> _todos = [];
-    private List<int> _ids = [];
     private int _nextId = 1;
 
     public TodoItem AddTodo(string title)
@@ -19,8 +18,7 @@ public class TodoService : ITodoService
             Id = _nextId++,
             Title = title.Trim()
         };
-
-        _ids.Add(newItem.Id);
+        
         _todos.Add(newItem);
         return newItem;
     }
