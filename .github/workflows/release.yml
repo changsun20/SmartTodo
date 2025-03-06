@@ -98,20 +98,19 @@ jobs:
       - name: 🏗️ Publish NativeAOT
         shell: bash
         run: |
-          # 关键改动：输出到统一目录并保持 RID 命名
           dotnet publish Todo.Cli/Todo.Cli.csproj \
             -r ${{ matrix.rid }} \
             -c Release \
-            /p:PublishAot=true \
-            /p:DebugType=None \
-            /p:DebugSymbols=false \
-            /p:EnableCompressionInSingleFile=true \
-            /p:IlcGenerateStackTraceData=false \
-            /p:IlcOptimizationPreference=Speed \
+            -p:PublishAot=true \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -p:EnableCompressionInSingleFile=true \
+            -p:IlcGenerateStackTraceData=false \
+            -p:IlcOptimizationPreference=Speed \
             -o artifacts/publish/${{ matrix.rid }}
 
           # 移动文件到扁平化目录
-          mv artifacts/publish/${{ matrix.rid }}/Todo.Cli artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
+          mv artifacts/publish/${{ matrix.rid }}/Todo.Cli${{ matrix.suffix }} artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
 
       - name: Verify Output
         run: |
