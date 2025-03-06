@@ -62,10 +62,10 @@ public class TodoServiceTests
     public void ToggleCompletion_ValidId_SwitchesStatus()
     {
         var item = _service.AddTodo("Test");
-        
+
         var firstResult = _service.ToggleCompletion(item.Id);
         Assert.True(firstResult.IsCompleted);
-        
+
         var secondResult = _service.ToggleCompletion(item.Id);
         Assert.False(secondResult.IsCompleted);
     }
