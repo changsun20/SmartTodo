@@ -36,6 +36,8 @@ jobs:
           notes+="📚 **Full Changelog**: [View Changes]($compare_url)"
           
           echo "content=$notes" >> $GITHUB_OUTPUT
+          mkdir -p ./notes
+          echo -e "$notes" > ./notes/release_notes.md
 
   build:
     name: Build (${{ matrix.rid }})
@@ -102,21 +104,19 @@ jobs:
             brew install lld
           fi
 
-      - name: 🏗️ Publish NativeAOT
+      - name: 🏗️ Publish NativeAOT for linux-arm and linux-arm64
+        if: matrix.rid == 'linux-arm' || matrix.rid == 'linux-arm64'
         shell: bash
         run: |
-          case "${{ matrix.rid }}" in
-            linux-arm64)
-              ilc_args="-p:IlcLinkerFlags=\"-fuse-ld=lld --target=aarch64-linux-gnu\" -p:IlcTargetTriple=aarch64-linux-gnu"
-              ;;
-            linux-arm)
-              ilc_args="-p:IlcLinkerFlags=\"-fuse-ld=lld --target=arm-linux-gnueabihf\" -p:IlcTargetTriple=arm-linux-gnueabihf"
-              ;;
-            *)
-              ilc_args=""
-              ;;
-          esac
-      
+          TARGET_TRIPLE=""
+          LD_FLAGS=""
+          
+          if [[ "${{ matrix.rid }}" == "linux-arm64" ]]; then
+            TARGET_TRIPLE="aarch64-linux-gnu"
+          elif [[ "${{ matrix.rid }}" == "linux-arm" ]]; then
+            TARGET_TRIPLE="arm-linux-gnueabihf"
+          fi
+          
           dotnet publish Todo.Cli/Todo.Cli.csproj \
             -r ${{ matrix.rid }} \
             -c Release \
@@ -126,9 +126,27 @@ jobs:
             -p:EnableCompressionInSingleFile=true \
             -p:IlcGenerateStackTraceData=false \
             -p:IlcOptimizationPreference=Speed \
-            $ilc_args \
+            -p:IlcTargetTriple=$TARGET_TRIPLE \
+            "-p:IlcLinkerFlags=-fuse-ld=lld --target=$TARGET_TRIPLE" \
             -o artifacts/publish/${{ matrix.rid }}
-      
+          
+          mv artifacts/publish/${{ matrix.rid }}/Todo.Cli${{ matrix.suffix }} artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
+
+      - name: 🏗️ Publish NativeAOT for other platforms
+        if: matrix.rid != 'linux-arm' && matrix.rid != 'linux-arm64'
+        shell: bash
+        run: |
+          dotnet publish Todo.Cli/Todo.Cli.csproj \
+            -r ${{ matrix.rid }} \
+            -c Release \
+            -p:PublishAot=true \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -p:EnableCompressionInSingleFile=true \
+            -p:IlcGenerateStackTraceData=false \
+            -p:IlcOptimizationPreference=Speed \
+            -o artifacts/publish/${{ matrix.rid }}
+          
           mv artifacts/publish/${{ matrix.rid }}/Todo.Cli${{ matrix.suffix }} artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
 
       - name: Upload Artifact
@@ -148,6 +166,21 @@ jobs:
           name: binaries
           path: artifacts
 
+      - name: Download Release Notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: notes
+        continue-on-error: true
+
+      - name: Create Release Notes if missing
+        run: |
+          mkdir -p notes
+          if [ ! -f ./notes/release_notes.md ]; then
+            echo "## 🚀 SmartTodo ${{ github.ref_name }}" > ./notes/release_notes.md
+            echo -e "\n### ✨ What's Changed\n- Automated release" >> ./notes/release_notes.md
+          fi
+
       - name: 🏷️ Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -155,7 +188,7 @@ jobs:
           name: "SmartTodo ${{ github.ref_name }}"
           body_path: ./notes/release_notes.md
           files: |
-            artifacts/**/SmartTodo-*
+            artifacts/SmartTodo-*
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
         env:
