@@ -87,9 +87,7 @@ jobs:
 
       - name: ⚙️ Install Dependencies
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang zlib1g-dev
+        run: sudo apt-get install -y clang zlib1g-dev
 
       - name: 🏗️ Publish NativeAOT
         shell: bash
@@ -111,106 +109,24 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.rid }}
+          name: binaries
           path: artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
           retention-days: 3
 
-  # 专门处理 ARM 架构的单独任务
-  build-arm:
-    name: Build Linux ARM
-    needs: prepare
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - rid: linux-arm64
-            arch: arm64
-            gcc: aarch64-linux-gnu-gcc
-            target: aarch64-linux-gnu
-          - rid: linux-arm
-            arch: arm
-            gcc: arm-linux-gnueabihf-gcc
-            target: arm-linux-gnueabihf
-
-    container:
-      image: ubuntu:22.04
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Dependencies
-        run: |
-          apt-get update
-          apt-get install -y wget curl unzip git build-essential
-          apt-get install -y zlib1g-dev
-          
-          # Install cross-compiler toolchains
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
-          else
-            apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
-          fi
-          
-          # Install .NET SDK
-          apt-get install -y wget apt-transport-https
-          wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
-          chmod +x ./dotnet-install.sh
-          ./dotnet-install.sh --version 9.0.200 --install-dir /usr/share/dotnet
-          ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
-
-      - name: Build for ${{ matrix.rid }}
-        run: |
-          # 创建必要的目录
-          mkdir -p artifacts/publish/${{ matrix.rid }}
-          
-          # 配置 environment variables
-          export CppCompilerAndLinker=${{ matrix.gcc }}
-          export DOTNET_CLI_TELEMETRY_OPTOUT=1
-          
-          # 使用修改过的命令行参数进行构建
-          dotnet publish Todo.Cli/Todo.Cli.csproj \
-            -r ${{ matrix.rid }} \
-            -c Release \
-            -p:PublishAot=true \
-            -p:DebugType=None \
-            -p:DebugSymbols=false \
-            -p:EnableCompressionInSingleFile=true \
-            -p:IlcGenerateStackTraceData=false \
-            -p:IlcOptimizationPreference=Speed \
-            -p:CrossCompiling=true \
-            -p:CppCompilerAndLinker=${{ matrix.gcc }} \
-            -o artifacts/publish/${{ matrix.rid }}
-          
-          # 移动生成的文件
-          mkdir -p artifacts
-          mv artifacts/publish/${{ matrix.rid }}/Todo.Cli artifacts/SmartTodo-${{ matrix.rid }}
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: binaries-${{ matrix.rid }}
-          path: artifacts/SmartTodo-${{ matrix.rid }}
-          retention-days: 3
-
   release:
-    needs: [prepare, build, build-arm]
+    needs: [prepare, build]
     runs-on: ubuntu-latest
     steps:
-      - name: Download All Artifacts
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           path: download-artifacts
 
-      - name: Prepare Files for Release
+      - name: Prepare Release Assets
         run: |
           mkdir -p artifacts
-          
-          # Move all binaries to the artifacts directory
-          find download-artifacts/binaries-* -type f -name "SmartTodo-*" -exec cp {} artifacts/ \;
-          
-          # Copy release notes
-          mkdir -p notes
-          cp download-artifacts/release-notes/release_notes.md notes/ || echo "## 🚀 SmartTodo ${{ github.ref_name }}" > ./notes/release_notes.md
+          find download-artifacts/ -name "SmartTodo-*" -exec cp {} artifacts/ \;
+          cp download-artifacts/release-notes/release_notes.md ./notes/ || echo "Fallback release notes" > ./notes/release_notes.md
 
       - name: 🏷️ Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -218,8 +134,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: "SmartTodo ${{ github.ref_name }}"
           body_path: ./notes/release_notes.md
-          files: |
-            artifacts/SmartTodo-*
+          files: artifacts/SmartTodo-*
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
         env:
