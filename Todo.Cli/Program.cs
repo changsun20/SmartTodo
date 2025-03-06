@@ -1,11 +1,11 @@
-﻿using Todo.Core.Services;
+﻿using Todo.Cli.Utils;
+using Todo.Core.Services;
 
 var todoService = new TodoService();
+var commandHandler = new CommandHandler(todoService);
+
 Console.WriteLine("Welcome to SmartTodo CLI!");
-Console.WriteLine("Available commands:");
-Console.WriteLine("  add [title]  - Add new todo");
-Console.WriteLine("  list         - Show all todos");
-Console.WriteLine("  exit         - Exit the program\n");
+CommandHandler.ShowHelp();
 
 while (true)
 {
@@ -14,54 +14,44 @@ while (true)
 
     if (string.IsNullOrEmpty(input)) continue;
 
-    if (input.Equals("exit", StringComparison.OrdinalIgnoreCase))
-    {
-        break;
-    }
+    var (command, arguments) = ParseInput(input);
 
-    if (input.StartsWith("add ", StringComparison.OrdinalIgnoreCase))
+    switch (command.ToLower())
     {
-        var title = input[4..].Trim();
-        if (title.Length == 0)
-        {
-            Console.WriteLine("Invalid command. Usage: add [title]");
-            continue;
-        }
+        case "exit":
+            Console.WriteLine("Goodbye!");
+            return;
 
-        try
-        {
-            var newItem = todoService.AddTodo(title);
-            Console.WriteLine($"Added todo #{newItem.Id}: {newItem.Title}");
-        }
-        catch (ArgumentException ex)
-        {
-            Console.WriteLine($"Error: {ex.Message}");
-        }
-    }
-    else if (input.Equals("list", StringComparison.OrdinalIgnoreCase))
-    {
-        var todos = todoService.GetAllTodos();
+        case "add":
+            commandHandler.HandleAdd(arguments);
+            break;
 
-        if (todos.Count == 0)
-        {
-            Console.WriteLine("No todos yet!");
-        }
-        else
-        {
-            Console.WriteLine($"Current todos ({todos.Count}):");
-            foreach (var t in todos)
-            {
-                Console.WriteLine($" #{t.Id} {t.Title} [Created: {t.CreatedAt:g}]");
-            }
-        }
-    }
-    else
-    {
-        Console.WriteLine("Available commands:");
-        Console.WriteLine("  add [title]  - Add new todo");
-        Console.WriteLine("  list         - Show all todos");
-        Console.WriteLine("  exit         - Exit the program");
+        case "list":
+            commandHandler.HandleList();
+            break;
+
+        case "delete":
+            commandHandler.HandleDelete(arguments);
+            break;
+
+        case "update":
+            commandHandler.HandleUpdate(arguments);
+            break;
+
+        case "complete":
+            commandHandler.HandleComplete(arguments);
+            break;
+
+        default:
+            CommandHandler.ShowHelp();
+            break;
     }
 }
 
-Console.WriteLine("Goodbye!");
+(string Command, string Args) ParseInput(string input)
+{
+    var firstSpace = input.IndexOf(' ');
+    return firstSpace == -1
+        ? (input, string.Empty)
+        : (input[..firstSpace], input[(firstSpace + 1)..].Trim());
+}
