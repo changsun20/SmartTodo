@@ -20,7 +20,6 @@ jobs:
       - name: 📄 Generate Release Notes
         id: generate-notes
         run: |
-          # 智能处理首次发布和后续更新
           if git describe --tags --abbrev=0 &> /dev/null; then
             prev_tag=$(git describe --tags --abbrev=0)
             commit_range="$prev_tag..HEAD"
@@ -29,118 +28,108 @@ jobs:
             commit_range="HEAD"
           fi
 
-          # 生成带可点击链接的提交列表
           changes=$(git log --pretty=format:"- [%h](https://github.com/$GITHUB_REPOSITORY/commit/%H) %s (%an)" $commit_range)
           compare_url="https://github.com/$GITHUB_REPOSITORY/compare/$prev_tag...${{ github.ref_name }}"
 
-          # 构建 Markdown 内容
           notes="## 🚀 SmartTodo ${{ github.ref_name }}\n\n"
           notes+="### ✨ What's Changed\n${changes}\n\n"
           notes+="📚 **Full Changelog**: [View Changes]($compare_url)"
           
-          # 输出到环境变量
           echo "content=$notes" >> $GITHUB_OUTPUT
+          mkdir -p ./notes
+          echo -e "$notes" > ./notes/release_notes.md
+
+      - name: Upload Release Notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: ./notes/release_notes.md
+          retention-days: 3
 
   build:
-    name: 🛠️ Build (${{ matrix.rid }})
+    name: Build (${{ matrix.rid }})
     needs: prepare
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
         include:
-          # Windows 平台 (3 架构)
+          # Windows
           - os: windows-latest
             rid: win-x86
             suffix: .exe
-            icon: 🪟
           - os: windows-latest
             rid: win-x64
             suffix: .exe
-            icon: 🪟
           - os: windows-latest
             rid: win-arm64
             suffix: .exe
-            icon: 🪟
 
-          # Linux 平台 (3 架构)
+          # Linux x64
           - os: ubuntu-latest
             rid: linux-x64
             suffix: ""
-            icon: 🐧
-          - os: ubuntu-latest
-            rid: linux-arm64
-            suffix: ""
-            icon: 🐧
-          - os: ubuntu-latest
-            rid: linux-arm
-            suffix: ""
-            icon: 🐧
 
-          # macOS 平台 (2 架构)
+          # macOS
           - os: macos-latest
             rid: osx-x64
             suffix: ""
-            icon: 🍎
           - os: macos-latest
             rid: osx-arm64
             suffix: ""
-            icon: 🍎
 
     steps:
-      - name: 🔍 Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: ⚙️ Setup .NET 9.0.200
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.200
 
-      - name: 🏗️ Build & Publish
+      - name: ⚙️ Install Dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y clang zlib1g-dev
+
+      - name: 🏗️ Publish NativeAOT
+        shell: bash
         run: |
-          # 优化后的 NativeAOT 发布命令
           dotnet publish Todo.Cli/Todo.Cli.csproj \
             -r ${{ matrix.rid }} \
             -c Release \
-            --nologo \
-            /p:PublishAot=true \
-            /p:DebugType=None \
-            /p:DebugSymbols=false \
-            /p:EnableCompressionInSingleFile=true \
-            /p:IlcOptimizationPreference=Speed \
-            /p:OutputPath=./artifacts/${{ matrix.rid }}
+            -p:PublishAot=true \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -p:EnableCompressionInSingleFile=true \
+            -p:IlcGenerateStackTraceData=false \
+            -p:IlcOptimizationPreference=Speed \
+            -o artifacts/publish/${{ matrix.rid }}
+          
+          mkdir -p artifacts
+          mv artifacts/publish/${{ matrix.rid }}/Todo.Cli${{ matrix.suffix }} artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
 
-          # 验证输出文件存在
-          if [ ! -f "./artifacts/${{ matrix.rid }}/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}" ]; then
-            echo "❌ Build failed for ${{ matrix.rid }}"
-            exit 1
-          fi
-
-      - name: 📤 Upload Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.icon }} ${{ matrix.rid }}
-          path: |
-            artifacts/${{ matrix.rid }}/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
+          name: binaries-${{ matrix.rid }}
+          path: artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
           retention-days: 3
 
   release:
-    name: 🚀 Create Release
     needs: [prepare, build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: 📥 Download Notes
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: content
-          path: ./notes
+          path: download-artifacts
 
-      - name: 📦 Collect Binaries
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: '*-*'
-          merge-multiple: true
+      - name: Prepare Release Assets
+        run: |
+          mkdir -p artifacts
+          mkdir -p notes
+          find download-artifacts/ -name "SmartTodo-*" -exec cp {} artifacts/ \;
+          cp download-artifacts/release-notes/release_notes.md notes/ || echo "Fallback release notes" > notes/release_notes.md
 
       - name: 🏷️ Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -148,8 +137,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: "SmartTodo ${{ github.ref_name }}"
           body_path: ./notes/release_notes.md
-          files: |
-            artifacts/**/SmartTodo-*
+          files: artifacts/SmartTodo-*
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
         env:
