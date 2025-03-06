@@ -49,69 +49,70 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Windows 平台 (3 架构)
+          # Windows
           - os: windows-latest
             rid: win-x86
             suffix: .exe
-            icon: 🪟
           - os: windows-latest
             rid: win-x64
             suffix: .exe
-            icon: 🪟
           - os: windows-latest
             rid: win-arm64
             suffix: .exe
-            icon: 🪟
 
-          # Linux 平台 (3 架构)
+          # Linux
           - os: ubuntu-latest
             rid: linux-x64
             suffix: ""
-            icon: 🐧
           - os: ubuntu-latest
             rid: linux-arm64
             suffix: ""
-            icon: 🐧
           - os: ubuntu-latest
             rid: linux-arm
             suffix: ""
-            icon: 🐧
 
-          # macOS 平台 (2 架构)
+          # macOS
           - os: macos-latest
             rid: osx-x64
             suffix: ""
-            icon: 🍎
           - os: macos-latest
             rid: osx-arm64
             suffix: ""
-            icon: 🍎
 
     steps:
-      - name: 🔍 Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: ⚙️ Setup .NET 9.0.200
-        uses: actions/setup-dotnet@v4
+      - name: ⚙️ Install Dependencies
+        if: matrix.os != 'windows-latest'
+        run: |
+          # Linux/macOS 需要 clang 和 lld
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y clang lld zlib1g-dev
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            brew install lld
+          fi
+
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.200
 
-      - name: 🏗️ Build & Publish
+      - name: 🏗️ Publish NativeAOT
+        shell: bash
         run: |
-          # 优化后的 NativeAOT 发布命令
           dotnet publish Todo.Cli/Todo.Cli.csproj \
             -r ${{ matrix.rid }} \
             -c Release \
-            --nologo \
             /p:PublishAot=true \
             /p:DebugType=None \
             /p:DebugSymbols=false \
             /p:EnableCompressionInSingleFile=true \
+            /p:IlcGenerateStackTraceData=false \
             /p:IlcOptimizationPreference=Speed \
-            /p:OutputPath=./artifacts/${{ matrix.rid }}
+            -o artifacts/${{ matrix.rid }}/publish
 
-          # 验证输出文件存在
-          if [ ! -f "./artifacts/${{ matrix.rid }}/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}" ]; then
+          # 修正验证路径
+          if [ ! -f "artifacts/${{ matrix.rid }}/publish/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}" ]; then
             echo "❌ Build failed for ${{ matrix.rid }}"
             exit 1
           fi
@@ -119,10 +120,9 @@ jobs:
       - name: 📤 Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.icon }} ${{ matrix.rid }}
+          name: ${{ matrix.rid }}
           path: |
-            artifacts/${{ matrix.rid }}/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
-          retention-days: 3
+            artifacts/${{ matrix.rid }}/publish/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
 
   release:
     name: 🚀 Create Release
