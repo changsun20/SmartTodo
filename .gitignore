@@ -1,0 +1,36 @@
+# .NET 编译输出
+**/[Bb]in/
+**/[Oo]bj/
+**/TestResults/
+
+# NuGet 包和缓存
+**/.nuget/
+**/packages/
+*.nupkg
+nuget.exe
+
+# Rider IDE 文件
+.idea/
+*.sln.iml
+
+# 用户特定文件
+*.user
+*.userosscache
+*.suo
+*.lock.json
+
+# 本地开发环境文件
+appsettings.Development.json
+
+# 日志和临时文件
+**/logs/
+*.log
+*.tmp
+
+# 测试覆盖率报告
+**/coverage.xml
+**/*.coverage
+
+# 其他通用忽略项
+.DS_Store
+*.swp
