@@ -16,7 +16,7 @@ jobs:
           dotnet-version: 9.0.200
 
       - name: Format Check
-        run: dotnet format --verify-no-changes --check
+        run: dotnet format --verify-no-changes
 
   unit-tests:
     name: Run Unit Tests
