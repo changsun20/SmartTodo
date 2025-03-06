@@ -39,6 +39,13 @@ jobs:
           mkdir -p ./notes
           echo -e "$notes" > ./notes/release_notes.md
 
+      - name: Upload Release Notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: ./notes/release_notes.md
+          retention-days: 3
+
   build:
     name: Build (${{ matrix.rid }})
     needs: prepare
@@ -57,15 +64,9 @@ jobs:
             rid: win-arm64
             suffix: .exe
 
-          # Linux
+          # Linux x64
           - os: ubuntu-latest
             rid: linux-x64
-            suffix: ""
-          - os: ubuntu-latest
-            rid: linux-arm64
-            suffix: ""
-          - os: ubuntu-latest
-            rid: linux-arm
             suffix: ""
 
           # macOS
@@ -85,55 +86,12 @@ jobs:
           dotnet-version: 9.0.200
 
       - name: ⚙️ Install Dependencies
-        if: runner.os != 'Windows'
+        if: runner.os == 'Linux'
         run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y clang lld
+          sudo apt-get update
+          sudo apt-get install -y clang zlib1g-dev
 
-            case "${{ matrix.rid }}" in
-              linux-arm64)
-                sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
-                ;;
-              linux-arm)
-                sudo apt-get install -y gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
-                ;;
-            esac
-
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            brew install lld
-          fi
-
-      - name: 🏗️ Publish NativeAOT for linux-arm and linux-arm64
-        if: matrix.rid == 'linux-arm' || matrix.rid == 'linux-arm64'
-        shell: bash
-        run: |
-          TARGET_TRIPLE=""
-          LD_FLAGS=""
-          
-          if [[ "${{ matrix.rid }}" == "linux-arm64" ]]; then
-            TARGET_TRIPLE="aarch64-linux-gnu"
-          elif [[ "${{ matrix.rid }}" == "linux-arm" ]]; then
-            TARGET_TRIPLE="arm-linux-gnueabihf"
-          fi
-          
-          dotnet publish Todo.Cli/Todo.Cli.csproj \
-            -r ${{ matrix.rid }} \
-            -c Release \
-            -p:PublishAot=true \
-            -p:DebugType=None \
-            -p:DebugSymbols=false \
-            -p:EnableCompressionInSingleFile=true \
-            -p:IlcGenerateStackTraceData=false \
-            -p:IlcOptimizationPreference=Speed \
-            -p:IlcTargetTriple=$TARGET_TRIPLE \
-            "-p:IlcLinkerFlags=-fuse-ld=lld --target=$TARGET_TRIPLE" \
-            -o artifacts/publish/${{ matrix.rid }}
-          
-          mv artifacts/publish/${{ matrix.rid }}/Todo.Cli${{ matrix.suffix }} artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
-
-      - name: 🏗️ Publish NativeAOT for other platforms
-        if: matrix.rid != 'linux-arm' && matrix.rid != 'linux-arm64'
+      - name: 🏗️ Publish NativeAOT
         shell: bash
         run: |
           dotnet publish Todo.Cli/Todo.Cli.csproj \
@@ -147,39 +105,112 @@ jobs:
             -p:IlcOptimizationPreference=Speed \
             -o artifacts/publish/${{ matrix.rid }}
           
+          mkdir -p artifacts
           mv artifacts/publish/${{ matrix.rid }}/Todo.Cli${{ matrix.suffix }} artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: binaries
-          path: artifacts/SmartTodo-*
+          name: binaries-${{ matrix.rid }}
+          path: artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
+          retention-days: 3
+
+  # 专门处理 ARM 架构的单独任务
+  build-arm:
+    name: Build Linux ARM
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - rid: linux-arm64
+            arch: arm64
+            gcc: aarch64-linux-gnu-gcc
+            target: aarch64-linux-gnu
+          - rid: linux-arm
+            arch: arm
+            gcc: arm-linux-gnueabihf-gcc
+            target: arm-linux-gnueabihf
+
+    container:
+      image: ubuntu:22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          apt-get update
+          apt-get install -y wget curl unzip git build-essential
+          apt-get install -y zlib1g-dev
+          
+          # Install cross-compiler toolchains
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
+          else
+            apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
+          fi
+          
+          # Install .NET SDK
+          apt-get install -y wget apt-transport-https
+          wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
+          chmod +x ./dotnet-install.sh
+          ./dotnet-install.sh --version 9.0.200 --install-dir /usr/share/dotnet
+          ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
+
+      - name: Build for ${{ matrix.rid }}
+        run: |
+          # 创建必要的目录
+          mkdir -p artifacts/publish/${{ matrix.rid }}
+          
+          # 配置 environment variables
+          export CppCompilerAndLinker=${{ matrix.gcc }}
+          export DOTNET_CLI_TELEMETRY_OPTOUT=1
+          
+          # 使用修改过的命令行参数进行构建
+          dotnet publish Todo.Cli/Todo.Cli.csproj \
+            -r ${{ matrix.rid }} \
+            -c Release \
+            -p:PublishAot=true \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -p:EnableCompressionInSingleFile=true \
+            -p:IlcGenerateStackTraceData=false \
+            -p:IlcOptimizationPreference=Speed \
+            -p:CrossCompiling=true \
+            -p:CppCompilerAndLinker=${{ matrix.gcc }} \
+            -o artifacts/publish/${{ matrix.rid }}
+          
+          # 移动生成的文件
+          mkdir -p artifacts
+          mv artifacts/publish/${{ matrix.rid }}/Todo.Cli artifacts/SmartTodo-${{ matrix.rid }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.rid }}
+          path: artifacts/SmartTodo-${{ matrix.rid }}
           retention-days: 3
 
   release:
-    needs: [prepare, build]
+    needs: [prepare, build, build-arm]
     runs-on: ubuntu-latest
     steps:
-      - name: Download Artifacts
+      - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: binaries
-          path: artifacts
+          path: download-artifacts
 
-      - name: Download Release Notes
-        uses: actions/download-artifact@v4
-        with:
-          name: release-notes
-          path: notes
-        continue-on-error: true
-
-      - name: Create Release Notes if missing
+      - name: Prepare Files for Release
         run: |
+          mkdir -p artifacts
+          
+          # Move all binaries to the artifacts directory
+          find download-artifacts/binaries-* -type f -name "SmartTodo-*" -exec cp {} artifacts/ \;
+          
+          # Copy release notes
           mkdir -p notes
-          if [ ! -f ./notes/release_notes.md ]; then
-            echo "## 🚀 SmartTodo ${{ github.ref_name }}" > ./notes/release_notes.md
-            echo -e "\n### ✨ What's Changed\n- Automated release" >> ./notes/release_notes.md
-          fi
+          cp download-artifacts/release-notes/release_notes.md notes/ || echo "## 🚀 SmartTodo ${{ github.ref_name }}" > ./notes/release_notes.md
 
       - name: 🏷️ Create GitHub Release
         uses: softprops/action-gh-release@v2
