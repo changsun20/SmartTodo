@@ -42,11 +42,10 @@ jobs:
           echo "content=$notes" >> $GITHUB_OUTPUT
 
   build:
-    name: 🛠️ Build (${{ matrix.rid }})
+    name: Build (${{ matrix.rid }})
     needs: prepare
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
         include:
           # Windows
@@ -82,24 +81,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.200
+
       - name: ⚙️ Install Dependencies
-        if: matrix.os != 'windows-latest'
+        if: runner.os != 'Windows'
         run: |
-          # Linux/macOS 需要 clang 和 lld
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y clang lld zlib1g-dev
+            sudo apt-get update && sudo apt-get install -y clang lld
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             brew install lld
           fi
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 9.0.200
-
       - name: 🏗️ Publish NativeAOT
         shell: bash
         run: |
+          # 关键改动：输出到统一目录并保持 RID 命名
           dotnet publish Todo.Cli/Todo.Cli.csproj \
             -r ${{ matrix.rid }} \
             -c Release \
@@ -109,38 +108,33 @@ jobs:
             /p:EnableCompressionInSingleFile=true \
             /p:IlcGenerateStackTraceData=false \
             /p:IlcOptimizationPreference=Speed \
-            -o artifacts/${{ matrix.rid }}/publish
+            -o artifacts/publish/${{ matrix.rid }}
 
-          # 修正验证路径
-          if [ ! -f "artifacts/${{ matrix.rid }}/publish/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}" ]; then
-            echo "❌ Build failed for ${{ matrix.rid }}"
-            exit 1
-          fi
+          # 移动文件到扁平化目录
+          mv artifacts/publish/${{ matrix.rid }}/Todo.Cli artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
 
-      - name: 📤 Upload Artifact
+      - name: Verify Output
+        run: |
+          ls -lh artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
+          file artifacts/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.rid }}
+          name: binaries
           path: |
-            artifacts/${{ matrix.rid }}/publish/SmartTodo-${{ matrix.rid }}${{ matrix.suffix }}
+            artifacts/SmartTodo-*
+          retention-days: 3
 
   release:
-    name: 🚀 Create Release
     needs: [prepare, build]
     runs-on: ubuntu-latest
     steps:
-      - name: 📥 Download Notes
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: content
-          path: ./notes
-
-      - name: 📦 Collect Binaries
-        uses: actions/download-artifact@v4
-        with:
+          name: binaries
           path: artifacts
-          pattern: '*-*'
-          merge-multiple: true
 
       - name: 🏷️ Create GitHub Release
         uses: softprops/action-gh-release@v2
