@@ -18,7 +18,7 @@ public class TodoService : ITodoService
             Id = _nextId++,
             Title = title.Trim()
         };
-        
+
         _todos.Add(newItem);
         return newItem;
     }
