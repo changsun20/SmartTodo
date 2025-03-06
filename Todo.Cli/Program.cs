@@ -51,7 +51,7 @@ while (true)
             Console.WriteLine($"Current todos ({todos.Count}):");
             foreach (var t in todos)
             {
-                Console.WriteLine($" #{t.Id} {t.Title} [Created: {t.CreatedAt:HH:mm}]");
+                Console.WriteLine($" #{t.Id} {t.Title} [Created: {t.CreatedAt:g}]");
             }
         }
     }
