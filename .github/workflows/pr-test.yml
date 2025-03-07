@@ -6,6 +6,9 @@ jobs:
   quality-and-tests:
     name: Code Quality and Tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rid: [linux-x64] # 指定 Runtime Identifier
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -17,10 +20,10 @@ jobs:
         run: dotnet test --configuration Release --verbosity normal
       - name: Check AOT Compatibility
         run: |
-          # Turn on detailed output for all possible problems
-          dotnet build Todo.Cli/Todo.Cli.csproj -c Release \
-            -r ${{ matrix.rid }} \
+          # 编译 AOT
+          dotnet build Todo.Cli/Todo.Cli.csproj \
             -c Release \
+            -r ${{ matrix.rid }} \
             -p:PublishAot=true \
             -p:IsAotCompatible=true \
             -p:EnableAotAnalyzer=true \
@@ -29,34 +32,30 @@ jobs:
             -p:IsTrimmable=true \
             -v detailed \
             > aot_build.log 2>&1
-            
-          # Check for build warnings
+          
+          # 解析日志文件，检查警告和错误
           if grep -q "warning IL" aot_build.log; then
             echo "AOT warnings found in build log:"
             grep "warning IL" aot_build.log
             exit 1
           fi
           
-          # Check for AOT compatibility warnings
           if grep -q "AOT compatibility analyzer" aot_build.log; then
             echo "AOT compatibility analyzer warnings found:"
             grep "AOT compatibility analyzer" aot_build.log
             exit 1
           fi
           
-          # Check for trimming warnings
           if grep -q "warning IL2" aot_build.log; then
             echo "Trimming warnings found:"
             grep "warning IL2" aot_build.log
             exit 1
           fi
           
-          # Check for serialization warnings
           if grep -q "System.Text.Json.SourceGeneration" aot_build.log; then
             echo "Serialization warnings found:"
             grep "System.Text.Json.SourceGeneration" aot_build.log
             exit 1
           fi
           
-          # Success without warning!
           echo "No AOT compatibility issues found."
