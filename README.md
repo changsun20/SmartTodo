@@ -1,6 +1,7 @@
 # SmartTodo
 
-![Build Status](https://github.com/changsun20/SmartTodo/actions/workflows/dotnet.yml/badge.svg)
+![Build Status](https://github.com/changsun20/SmartTodo/actions/workflows/release.yml/badge.svg)
+![Test Badge](https://github.com/changsun20/SmartTodo/actions/workflows/pr-test.yml/badge.svg)
 ![Release](https://img.shields.io/github/v/release/changsun20/SmartTodo)
 ![License](https://img.shields.io/github/license/changsun20/SmartTodo)
 

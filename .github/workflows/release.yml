@@ -1,4 +1,4 @@
-name: SmartTodo NativeAOT Release
+name: NativeAOT Release
 
 on:
   push:
