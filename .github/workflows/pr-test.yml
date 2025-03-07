@@ -1,33 +1,17 @@
 name: PR Quality Gate
-
 on:
   pull_request:
     branches: [ "main" ]
-
 jobs:
-  code-quality:
-    name: Code Quality Checks
+  quality-and-tests:
+    name: Code Quality and Tests
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.200
-
       - name: Format Check
         run: dotnet format --verify-no-changes
-
-  unit-tests:
-    name: Run Unit Tests
-    runs-on: ubuntu-latest
-    needs: code-quality
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 9.0.200
-
-      - name: Test Core
+      - name: Run Unit Tests
         run: dotnet test --configuration Release --verbosity normal
