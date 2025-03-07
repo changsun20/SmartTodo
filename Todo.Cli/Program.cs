@@ -1,7 +1,8 @@
 ﻿using Todo.Cli.Utils;
 using Todo.Core.Services;
 
-var todoService = new TodoService();
+var todoRepository = new JsonTodoRepository();
+var todoService = new TodoService(todoRepository);
 var commandHandler = new CommandHandler(todoService);
 
 Console.WriteLine("Welcome to SmartTodo CLI!");
@@ -40,6 +41,10 @@ while (true)
 
         case "complete":
             commandHandler.HandleComplete(arguments);
+            break;
+            
+        case "clear":
+            commandHandler.HandleClear();
             break;
 
         default:

@@ -100,14 +100,28 @@ public class CommandHandler(ITodoService todoService)
         }
     }
 
+    public void HandleClear()
+    {
+        try
+        {
+            todoService.ClearAllTodos();
+            Console.WriteLine("All todos have been cleared!");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error clearing todos: {ex.Message}");
+        }
+    }
+
     public static void ShowHelp()
     {
         Console.WriteLine("Available commands:");
-        Console.WriteLine("  add [title]      - Add new todo");
-        Console.WriteLine("  list             - Show all todos");
-        Console.WriteLine("  delete [id]      - Remove a todo");
+        Console.WriteLine("  add [title]       - Add new todo");
+        Console.WriteLine("  list              - Show all todos");
+        Console.WriteLine("  delete [id]       - Remove a todo");
         Console.WriteLine("  update [id] [new] - Update todo title");
-        Console.WriteLine("  complete [id]    - Toggle completion status");
-        Console.WriteLine("  exit             - Exit the program");
+        Console.WriteLine("  complete [id]     - Toggle completion status");
+        Console.WriteLine("  clear             - Remove all todos");
+        Console.WriteLine("  exit              - Exit the program");
     }
 }
