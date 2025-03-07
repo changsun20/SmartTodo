@@ -42,7 +42,7 @@ while (true)
         case "complete":
             commandHandler.HandleComplete(arguments);
             break;
-            
+
         case "clear":
             commandHandler.HandleClear();
             break;

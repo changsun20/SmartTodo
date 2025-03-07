@@ -10,16 +10,16 @@ public class JsonTodoRepository : ITodoRepository
 {
     private readonly string _filePath;
     private readonly string _idFilePath;
-    
+
     public JsonTodoRepository(string baseDirectory = "")
     {
         // Determine the data directory
-        var dataDir = string.IsNullOrEmpty(baseDirectory) 
-            ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data") 
+        var dataDir = string.IsNullOrEmpty(baseDirectory)
+            ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data")
             : Path.Combine(baseDirectory, "data");
-        
+
         Directory.CreateDirectory(dataDir);
-        
+
         _filePath = Path.Combine(dataDir, "todos.json");
         _idFilePath = Path.Combine(dataDir, "lastid.json");
     }
@@ -44,7 +44,7 @@ public class JsonTodoRepository : ITodoRepository
     {
         if (!File.Exists(_filePath))
             return null;
-            
+
         try
         {
             var json = File.ReadAllText(_filePath);
@@ -61,7 +61,7 @@ public class JsonTodoRepository : ITodoRepository
     {
         if (!File.Exists(_idFilePath))
             return 1;
-            
+
         try
         {
             var json = File.ReadAllText(_idFilePath);
