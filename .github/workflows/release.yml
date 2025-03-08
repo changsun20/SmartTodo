@@ -23,17 +23,19 @@ jobs:
           if git describe --tags --abbrev=0 &> /dev/null; then
             prev_tag=$(git describe --tags --abbrev=0)
             commit_range="$prev_tag..HEAD"
+            compare_url="https://github.com/$GITHUB_REPOSITORY/compare/$prev_tag...${{ github.ref_name }}"
           else
-            prev_tag="Initial Release"
-            commit_range="HEAD"
+            first_commit=$(git rev-list --max-parents=0 HEAD)
+            prev_tag="Initial Release ($first_commit)"
+            commit_range="$first_commit..HEAD"
+            compare_url="https://github.com/$GITHUB_REPOSITORY/compare/$first_commit...${{ github.ref_name }}"
           fi
 
           changes=$(git log --pretty=format:"- [%h](https://github.com/$GITHUB_REPOSITORY/commit/%H) %s (%an)" $commit_range)
-          compare_url="https://github.com/$GITHUB_REPOSITORY/compare/$prev_tag...${{ github.ref_name }}"
 
           notes="## 🚀 SmartTodo ${{ github.ref_name }}\n\n"
-          notes+="### ✨ What's Changed\n${changes}\n\n"
-          notes+="📚 **Full Changelog**: [View Changes]($compare_url)"
+          notes+="### ✨ Full Commit History\n${changes}\n\n"
+          notes+="📚 **Version Comparison**: [View Changes]($compare_url)"
           
           echo "content=$notes" >> $GITHUB_OUTPUT
           mkdir -p ./notes
