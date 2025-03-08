@@ -14,7 +14,6 @@ A lightweight, efficient command-line todo list application written in C#. Smart
 - **Cross-platform**: Runs on Windows, macOS, and Linux
 - **Efficient**: AOT-compiled for optimal performance
 - **No dependencies**: Stand-alone binary with no need to install .NET SDK
-- **Future web integration**: Planning to add web interface in upcoming releases
 
 ## Installation
 
@@ -52,23 +51,23 @@ SmartTodo
 > complete 1
 
 # Remove a task
-> delete 2
+> remove 2
 ```
 
 ## Roadmap
 
-- [ ] JSON data persistence
-- [ ] Colorful output
-- [ ] Task prioritization
-- [ ] Due dates
+- [x] JSON data persistence
 - [ ] Task categories and tags
+- [ ] Task prioritization
+- [ ] Colorful output
+- [ ] Due dates
 - [ ] Command autofill
 - [ ] Web interface integration
 
 ## Development
 
 SmartTodo uses GitHub Actions for CI/CD:
-- Automated testing on all commits
+- Automated testing on all pull requests
 - Automated release building
 - Cross-platform binary generation
 
