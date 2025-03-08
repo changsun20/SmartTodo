@@ -27,11 +27,11 @@ while (true)
             commandHandler.HandleAdd(arguments);
             break;
 
-        case "list":
+        case "list" or "ls":
             commandHandler.HandleList();
             break;
 
-        case "delete":
+        case "remove" or "rm":
             commandHandler.HandleDelete(arguments);
             break;
 

@@ -117,8 +117,8 @@ public class CommandHandler(ITodoService todoService)
     {
         Console.WriteLine("Available commands:");
         Console.WriteLine("  add [title]       - Add new todo");
-        Console.WriteLine("  list              - Show all todos");
-        Console.WriteLine("  delete [id]       - Remove a todo");
+        Console.WriteLine("  list(ls)          - Show all todos");
+        Console.WriteLine("  remove(rm) [id]   - Remove a todo");
         Console.WriteLine("  update [id] [new] - Update todo title");
         Console.WriteLine("  complete [id]     - Toggle completion status");
         Console.WriteLine("  clear             - Remove all todos");
